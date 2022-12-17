@@ -1,0 +1,33 @@
+  1  ssh eric4316@mesbai.msi.umn.edu 
+    2  srun -N 1 --ntasks=1 --cpus-per-task=8 --mem-per-cpu=2gb -t 2:00:00 -p interactive --pty bash
+    3  cd ~/../shared
+    4  ls
+    5  cd ~
+    6  scp -r ~/../shared/AMS5583 ~
+	#Copying the AMS5583 folder from the shared directory to my own home directory.
+    7  ls
+    8  cd AMS5583/
+    9  ls
+   10  cd ~
+   11  module load trimmomatic/0.39
+	#Loads trimmomatic. (Helpful for trimming paired end and single end data. Trims and crops illumina (fastq) data and removes adapters)
+   12  module load samtools
+	#Loads samtools. (Indexes, removes duplicate reads, and reindexes reads.)
+   13  module load bwa
+	#Loads Burrow Wheeler Alignment. BWA-MEM, aligns reads.
+   14  java -jar $TRIMMOMATIC/trimmomatic.jar PE -threads 8 -phred33 -trimlog ~/AMS5583/AMS5583.trimlog ~/AMS5583/AMS5583_R1.fastq.gz ~/AMS5583/AMS5583_R2.fastq.gz ~/AMS5583/AMS5583_trimpairedr1.fastq ~/AMS5583/AMS5583_trimunpairedr1.fastq ~/AMS5583/AMS5583_trimpairedr2.fastq ~/AMS5583/AMS5583_trimunpairedr2.fastq LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 TOPHRED33
+	#Runs trimmomatic on targeted AMS5583 fastq.gz files. Trimmed low quality bases from the start and end of the reads and produced 4 output files.
+   15  bwa mem -t 8 -R "@RG\tID:scerevisiae\tPL:ILLUMINA\tPM:NextSeq\tSM:AMS5583" ~/reference\ genome/S288C_reference_sequence.fasta ~/AMS5583/AMS5583_trimpairedr1.fastq ~/AMS5583/AMS5583_trimpairedr2.fastq > ~/AMS5583/AMS5583_trimmed_bwa.sam
+	#BWA-MEM, aligned reads
+   16  samtools view -bS -o AMS5583_trimmed_bwa.bam AMS5583_trimmed_bwa.sam 
+	#Manipulated SAM file to produce a .bam file
+   17  samtools flagstat AMS5583_trimmed_bwa.bam > AMS5583_trimmed_bwa.stdout
+	#Produces .stdout file that does a quality control metric based on the aligned data
+   18  samtools sort AMS5583_trimmed_bwa.bam -o AMS5583_trimmed_bwa_sorted.bam
+	#sorted reads from left to right
+   19  samtools index AMS5583_trimmed_bwa_sorted.bam
+	#generated index used for fast analysis
+   20  samtools rmdup AMS5583_trimmed_bwa_sorted.bam AMS5583_trimmed_bwa_sorted_rmdup.bam
+	#removed PCR duplicates from sorted and indexed BAM file
+   21  samtools index AMS5583_trimmed_bwa_sorted_rmdup.bam
+	#re-indexed BAM file
